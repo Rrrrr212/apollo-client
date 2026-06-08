@@ -1,0 +1,168 @@
+diff --git a/src/pages/PublicDashboard/dashboard.html b/src/pages/PublicDashboard/dashboard.html
+new file mode 100644
+index 000000000..1de8e3b66
+--- /dev/null
++++ b/src/pages/PublicDashboard/dashboard.html
+@@ -0,0 +1,162 @@
++<!DOCTYPE html>
++<html lang="en">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Public Dashboard - GraphQL Data</title>
++    <style>
++        body {
++            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
++            line-height: 1.6;
++            padding: 2rem;
++            max-width: 800px;
++            margin: 0 auto;
++            color: #333;
++        }
++        h1 {
++            color: #2c3e50;
++            border-bottom: 2px solid #eee;
++            padding-bottom: 10px;
++        }
++        #loading {
++            color: #3498db;
++            font-weight: bold;
++            padding: 20px;
++            text-align: center;
++            background: #f8f9fa;
++            border-radius: 4px;
++        }
++        #error {
++            color: #721c24;
++            background-color: #f8d7da;
++            border: 1px solid #f5c6cb;
++            padding: 15px;
++            border-radius: 4px;
++            display: none;
++            margin-top: 20px;
++        }
++        #posts-list {
++            display: none;
++            list-style-type: none;
++            padding: 0;
++            margin-top: 20px;
++        }
++        #posts-list li {
++            background: #fff;
++            border: 1px solid #ddd;
++            margin-bottom: 10px;
++            padding: 15px;
++            border-radius: 4px;
++            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
++            transition: transform 0.2s;
++        }
++        #posts-list li:hover {
++            transform: translateY(-2px);
++            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
++        }
++        .post-id {
++            display: inline-block;
++            background: #eee;
++            color: #666;
++            padding: 2px 8px;
++            border-radius: 12px;
++            font-size: 0.8em;
++            margin-right: 10px;
++        }
++        .post-title {
++            font-weight: 500;
++        }
++    </style>
++</head>
++<body>
++    <h1>Public Dashboard</h1>
++
++    <div id="content">
++        <!-- 加载指示器 -->
++        <div id="loading">Loading data from GraphQL endpoint...</div>
++
++        <!-- 错误处理 -->
++        <div id="error"></div>
++
++        <!-- 动态渲染的列表 -->
++        <ul id="posts-list"></ul>
++    </div>
++
++    <!-- 使用 ES Modules 从 CDN 引入 @apollo/client/core 以避免引入 React 依赖 -->
++    <script type="module">
++        import { ApolloClient, InMemoryCache, gql } from 'https://esm.sh/@apollo/client/core';
++
++        // 1. 初始化 ApolloClient
++        const client = new ApolloClient({
++            uri: 'https://api.example.com/graphql',
++            cache: new InMemoryCache()
++        });
++
++        // 2. 定义 GET_PUBLIC_DATA_QUERY
++        const GET_PUBLIC_DATA_QUERY = gql`
++            query {
++                posts {
++                    id
++                    title
++                }
++            }
++        `;
++
++        // DOM 元素引用
++        const loadingEl = document.getElementById('loading');
++        const errorEl = document.getElementById('error');
++        const listEl = document.getElementById('posts-list');
++
++        // 3. 执行查询并渲染
++        async function fetchAndRenderData() {
++            try {
++                // 执行 GraphQL Query
++                const result = await client.query({
++                    query: GET_PUBLIC_DATA_QUERY
++                });
++
++                // 隐藏加载指示器
++                loadingEl.style.display = 'none';
++
++                // 获取并渲染数据
++                const posts = result.data.posts;
++
++                if (posts && posts.length > 0) {
++                    posts.forEach(post => {
++                        const li = document.createElement('li');
++
++                        const idSpan = document.createElement('span');
++                        idSpan.className = 'post-id';
++                        idSpan.textContent = `#${post.id}`;
++
++                        const titleSpan = document.createElement('span');
++                        titleSpan.className = 'post-title';
++                        titleSpan.textContent = post.title;
++
++                        li.appendChild(idSpan);
++                        li.appendChild(titleSpan);
++                        listEl.appendChild(li);
++                    });
++                } else {
++                    const li = document.createElement('li');
++                    li.textContent = 'No posts available.';
++                    listEl.appendChild(li);
++                }
++
++                // 显示列表
++                listEl.style.display = 'block';
++
++            } catch (error) {
++                // 4. 错误处理
++                loadingEl.style.display = 'none';
++                errorEl.style.display = 'block';
++                errorEl.textContent = `Error fetching data: ${error.message}`;
++                console.error('GraphQL Query Error:', error);
++            }
++        }
++
++        // 启动请求
++        fetchAndRenderData();
++    </script>
++</body>
++</html>
