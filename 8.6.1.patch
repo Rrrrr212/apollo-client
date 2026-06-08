@@ -1,0 +1,248 @@
+diff --git a/src/components/LoginForm.tsx b/src/components/LoginForm.tsx
+new file mode 100644
+index 000000000..ce33bffae
+--- /dev/null
++++ b/src/components/LoginForm.tsx
+@@ -0,0 +1,76 @@
++
++import { useState } from "react";
++import { useMutation } from "@apollo/client";
++import { LOGIN_MUTATION } from "../graphql/mutations/login";
++
++interface LoginFormProps {
++  onLoginSuccess?: () => void;
++}
++
++export function LoginForm({ onLoginSuccess }: LoginFormProps) {
++  const [email, setEmail] = useState("");
++  const [password, setPassword] = useState("");
++  const [errorMessage, setErrorMessage] = useState("");
++
++  const [login, { loading, error }] = useMutation(LOGIN_MUTATION, {
++    onCompleted: () => {
++      onLoginSuccess?.();
++    },
++    onError: (error) => {
++      setErrorMessage(error.message);
++    },
++  });
++
++  const handleSubmit = async (e: React.FormEvent) => {
++    e.preventDefault();
++    setErrorMessage("");
++    await login({
++      variables: { email, password },
++    });
++  };
++
++  return (
++    <form onSubmit={handleSubmit} data-testid="login-form">
++      {errorMessage &amp;&amp; (
++        <div className="error-message" data-testid="error-message">
++          {errorMessage}
++        </div>
++      )}
++      {error &amp;&amp; !errorMessage &amp;&amp; (
++        <div className="error-message" data-testid="error-message">
++          {error.message}
++        </div>
++      )}
++      <div>
++        <label htmlFor="email">Email</label>
++        <input
++          type="email"
++          id="email"
++          value={email}
++          onChange={(e) =&gt; setEmail(e.target.value)}
++          required
++          data-testid="email-input"
++        />
++      </div>
++      <div>
++        <label htmlFor="password">Password</label>
++        <input
++          type="password"
++          id="password"
++          value={password}
++          onChange={(e) =&gt; setPassword(e.target.value)}
++          required
++          data-testid="password-input"
++        />
++      </div>
++      <button
++        type="submit"
++        disabled={loading}
++        data-testid="login-button"
++      >
++        {loading ? "Logging in..." : "Login"}
++      </button>
++    </form>
++  );
++}
++
+diff --git a/src/components/__tests__/LoginForm.test.tsx b/src/components/__tests__/LoginForm.test.tsx
+new file mode 100644
+index 000000000..048348964
+--- /dev/null
++++ b/src/components/__tests__/LoginForm.test.tsx
+@@ -0,0 +1,138 @@
++
++import { render, screen, waitFor } from "@testing-library/react";
++import { userEvent } from "@testing-library/user-event";
++import { MockedProvider } from "@apollo/client/testing/react";
++import { LoginForm } from "../LoginForm";
++import { LOGIN_MUTATION } from "../../graphql/mutations/login";
++
++describe("LoginForm", () => {
++  const user = userEvent.setup();
++  const mockOnLoginSuccess = jest.fn();
++
++  beforeEach(() => {
++    jest.clearAllMocks();
++  });
++
++  it("should call onLoginSuccess when login is successful", async () => {
++    const mocks = [
++      {
++        request: {
++          query: LOGIN_MUTATION,
++          variables: {
++            email: "test@example.com",
++            password: "password123",
++          },
++        },
++        result: {
++          data: {
++            login: {
++              token: "fake-token",
++              user: {
++                id: "1",
++                email: "test@example.com",
++                name: "Test User",
++                __typename: "User",
++              },
++              __typename: "LoginPayload",
++            },
++          },
++        },
++      },
++    ];
++
++    render(
++      &lt;MockedProvider mocks={mocks}&gt;
++        &lt;LoginForm onLoginSuccess={mockOnLoginSuccess} /&gt;
++      &lt;/MockedProvider&gt;
++    );
++
++    await user.type(screen.getByTestId("email-input"), "test@example.com");
++    await user.type(screen.getByTestId("password-input"), "password123");
++    await user.click(screen.getByTestId("login-button"));
++
++    await waitFor(() =&gt; {
++      expect(mockOnLoginSuccess).toHaveBeenCalledTimes(1);
++    });
++  });
++
++  it("should display error message when login fails", async () => {
++    const mocks = [
++      {
++        request: {
++          query: LOGIN_MUTATION,
++          variables: {
++            email: "test@example.com",
++            password: "wrong-password",
++          },
++        },
++        error: new Error("Invalid credentials"),
++      },
++    ];
++
++    render(
++      &lt;MockedProvider mocks={mocks}&gt;
++        &lt;LoginForm /&gt;
++      &lt;/MockedProvider&gt;
++    );
++
++    await user.type(screen.getByTestId("email-input"), "test@example.com");
++    await user.type(screen.getByTestId("password-input"), "wrong-password");
++    await user.click(screen.getByTestId("login-button"));
++
++    await waitFor(() =&gt; {
++      expect(screen.getByTestId("error-message")).toBeInTheDocument();
++      expect(screen.getByTestId("error-message")).toHaveTextContent(
++        "Invalid credentials"
++      );
++    });
++  });
++
++  it("should disable the login button while loading", async () => {
++    const mocks = [
++      {
++        request: {
++          query: LOGIN_MUTATION,
++          variables: {
++            email: "test@example.com",
++            password: "password123",
++          },
++        },
++        result: {
++          data: {
++            login: {
++              token: "fake-token",
++              user: {
++                id: "1",
++                email: "test@example.com",
++                name: "Test User",
++                __typename: "User",
++              },
++              __typename: "LoginPayload",
++            },
++          },
++        },
++        delay: 100,
++      },
++    ];
++
++    render(
++      &lt;MockedProvider mocks={mocks}&gt;
++        &lt;LoginForm /&gt;
++      &lt;/MockedProvider&gt;
++    );
++
++    await user.type(screen.getByTestId("email-input"), "test@example.com");
++    await user.type(screen.getByTestId("password-input"), "password123");
++    await user.click(screen.getByTestId("login-button"));
++
++    expect(screen.getByTestId("login-button")).toBeDisabled();
++    expect(screen.getByTestId("login-button")).toHaveTextContent(
++      "Logging in..."
++    );
++
++    await waitFor(() =&gt; {
++      expect(screen.getByTestId("login-button")).not.toBeDisabled();
++    });
++  });
++});
++
+diff --git a/src/graphql/mutations/login.ts b/src/graphql/mutations/login.ts
+new file mode 100644
+index 000000000..84e725d00
+--- /dev/null
++++ b/src/graphql/mutations/login.ts
+@@ -0,0 +1,16 @@
++
++import { gql } from "@apollo/client";
++
++export const LOGIN_MUTATION = gql`
++  mutation Login($email: String!, $password: String!) {
++    login(email: $email, password: $password) {
++      token
++      user {
++        id
++        email
++        name
++      }
++    }
++  }
++`;
++
