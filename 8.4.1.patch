@@ -1,0 +1,217 @@
+diff --git a/example/src/App.tsx b/example/src/App.tsx
+new file mode 100644
+index 000000000..765ed5eb8
+--- /dev/null
++++ b/example/src/App.tsx
+@@ -0,0 +1,15 @@
++import React from 'react';
++import { ApolloProvider } from '@apollo/client/react';
++import { client } from './apollo/client';
++import ProductList from './components/ProductList';
++
++export default function App() {
++  return (
++    <ApolloProvider client={client}>
++      <div className="app">
++        <h1>Product List</h1>
++        <ProductList />
++      </div>
++    </ApolloProvider>
++  );
++}
+diff --git a/example/src/apollo/client.ts b/example/src/apollo/client.ts
+new file mode 100644
+index 000000000..5e2d763f6
+--- /dev/null
++++ b/example/src/apollo/client.ts
+@@ -0,0 +1,27 @@
++import { ApolloClient, InMemoryCache, HttpLink } from '@apollo/client';
++import { setContext } from '@apollo/client/link/context';
++
++const httpLink = new HttpLink({
++  uri: '/graphql',
++});
++
++const authLink = setContext((_, { headers }) => {
++  const token = localStorage.getItem('authToken');
++  return {
++    headers: {
++      ...headers,
++      authorization: token ? `Bearer ${token}` : '',
++    },
++  };
++});
++
++export const client = new ApolloClient({
++  link: authLink.concat(httpLink),
++  cache: new InMemoryCache(),
++  defaultOptions: {
++    watchQuery: {
++      fetchPolicy: 'cache-first',
++      errorPolicy: 'all',
++    },
++  },
++});
+diff --git a/example/src/components/ProductList.rest.tsx b/example/src/components/ProductList.rest.tsx
+new file mode 100644
+index 000000000..24d08a889
+--- /dev/null
++++ b/example/src/components/ProductList.rest.tsx
+@@ -0,0 +1,73 @@
++import React, { useState, useEffect } from 'react';
++
++interface Product {
++  id: string;
++  title: string;
++  description: string;
++  price: number;
++  image: string;
++}
++
++export default function ProductList() {
++  const [products, setProducts] = useState<Product[]>([]);
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState<string | null>(null);
++
++  useEffect(() => {
++    const fetchProducts = async () => {
++      try {
++        setLoading(true);
++        const response = await fetch('/api/products');
++        if (!response.ok) {
++          throw new Error(`HTTP error! status: ${response.status}`);
++        }
++        const data = await response.json();
++        setProducts(data.products);
++        setError(null);
++      } catch (err) {
++        setError(err instanceof Error ? err.message : 'An error occurred');
++        setProducts([]);
++      } finally {
++        setLoading(false);
++      }
++    };
++
++    fetchProducts();
++  }, []);
++
++  if (error) {
++    return (
++      <div className="error-container">
++        <h2>Error</h2>
++        <p>{error}</p>
++      </div>
++    );
++  }
++
++  if (loading) {
++    return (
++      <div className="product-grid">
++        {[...Array(6)].map((_, i) => (
++          <div key={i} className="product-skeleton">
++            <div className="skeleton-image" />
++            <div className="skeleton-title" />
++            <div className="skeleton-price" />
++          </div>
++        ))}
++      </div>
++    );
++  }
++
++  return (
++    <div className="product-grid">
++      {products.map((product) => (
++        <div key={product.id} className="product-card">
++          <img src={product.image} alt={product.title} className="product-image" />
++          <h3 className="product-title">{product.title}</h3>
++          <p className="product-description">{product.description}</p>
++          <p className="product-price">${product.price.toFixed(2)}</p>
++        </div>
++      ))}
++    </div>
++  );
++}
+diff --git a/example/src/components/ProductList.tsx b/example/src/components/ProductList.tsx
+new file mode 100644
+index 000000000..9b3ac3638
+--- /dev/null
++++ b/example/src/components/ProductList.tsx
+@@ -0,0 +1,46 @@
++import React from 'react';
++import { useQuery } from '@apollo/client/react';
++import { GET_PRODUCTS_QUERY } from '../graphql/queries/products';
++import type { Product } from '../graphql/queries/products';
++
++export default function ProductList() {
++  const { loading, error, data } = useQuery(GET_PRODUCTS_QUERY);
++
++  if (error) {
++    return (
++      <div className="error-container">
++        <h2>Error</h2>
++        <p>{error.message}</p>
++      </div>
++    );
++  }
++
++  if (loading) {
++    return (
++      <div className="product-grid">
++        {[...Array(6)].map((_, i) => (
++          <div key={i} className="product-skeleton">
++            <div className="skeleton-image" />
++            <div className="skeleton-title" />
++            <div className="skeleton-price" />
++          </div>
++        ))}
++      </div>
++    );
++  }
++
++  const products = data?.products ?? [];
++
++  return (
++    <div className="product-grid">
++      {products.map((product: Product) => (
++        <div key={product.id} className="product-card">
++          <img src={product.image} alt={product.title} className="product-image" />
++          <h3 className="product-title">{product.title}</h3>
++          <p className="product-description">{product.description}</p>
++          <p className="product-price">${product.price.toFixed(2)}</p>
++        </div>
++      ))}
++    </div>
++  );
++}
+diff --git a/example/src/graphql/queries/products.ts b/example/src/graphql/queries/products.ts
+new file mode 100644
+index 000000000..424d9947f
+--- /dev/null
++++ b/example/src/graphql/queries/products.ts
+@@ -0,0 +1,26 @@
++import { gql } from '@apollo/client';
++import type { TypedDocumentNode } from '@apollo/client';
++
++export interface Product {
++  id: string;
++  title: string;
++  description: string;
++  price: number;
++  image: string;
++}
++
++export interface GetProductsData {
++  products: Product[];
++}
++
++export const GET_PRODUCTS_QUERY: TypedDocumentNode<GetProductsData> = gql`
++  query GetProducts {
++    products {
++      id
++      title
++      description
++      price
++      image
++    }
++  }
++`;
