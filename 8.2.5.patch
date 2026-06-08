@@ -1,0 +1,190 @@
+diff --git a/src/pages/PublicDashboard/dashboard.html b/src/pages/PublicDashboard/dashboard.html
+new file mode 100644
+index 000000000..877f7147a
+--- /dev/null
++++ b/src/pages/PublicDashboard/dashboard.html
+@@ -0,0 +1,184 @@
++<!DOCTYPE html>
++<html lang="zh-CN">
++<head>
++  <meta charset="UTF-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1.0">
++  <title>Public Dashboard</title>
++  <style>
++    * {
++      margin: 0;
++      padding: 0;
++      box-sizing: border-box;
++    }
++
++    body {
++      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
++      background-color: #f5f5f5;
++      padding: 2rem;
++      color: #333;
++    }
++
++    .container {
++      max-width: 800px;
++      margin: 0 auto;
++      background: white;
++      border-radius: 8px;
++      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
++      padding: 2rem;
++    }
++
++    h1 {
++      margin-bottom: 1.5rem;
++      color: #1a1a1a;
++      border-bottom: 2px solid #e0e0e0;
++      padding-bottom: 0.5rem;
++    }
++
++    .loading {
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      padding: 2rem;
++      color: #666;
++    }
++
++    .loading::before {
++      content: '';
++      width: 24px;
++      height: 24px;
++      border: 3px solid #e0e0e0;
++      border-top-color: #007bff;
++      border-radius: 50%;
++      animation: spin 0.8s linear infinite;
++      margin-right: 0.75rem;
++    }
++
++    @keyframes spin {
++      to { transform: rotate(360deg); }
++    }
++
++    .error {
++      background-color: #fee;
++      border: 1px solid #fcc;
++      border-radius: 4px;
++      padding: 1rem;
++      color: #c00;
++    }
++
++    .error-title {
++      font-weight: bold;
++      margin-bottom: 0.5rem;
++    }
++
++    ul.posts-list {
++      list-style: none;
++      padding: 0;
++    }
++
++    ul.posts-list li {
++      padding: 0.75rem 1rem;
++      border-bottom: 1px solid #eee;
++      transition: background-color 0.2s;
++    }
++
++    ul.posts-list li:last-child {
++      border-bottom: none;
++    }
++
++    ul.posts-list li:hover {
++      background-color: #f8f9fa;
++    }
++
++    .post-id {
++      color: #888;
++      font-size: 0.85rem;
++      margin-right: 0.5rem;
++    }
++
++    .post-title {
++      color: #333;
++    }
++
++    .empty-state {
++      text-align: center;
++      padding: 2rem;
++      color: #888;
++    }
++  </style>
++</head>
++<body>
++  <div class="container">
++    <h1>Public Data Dashboard</h1>
++    <div id="content">
++      <div class="loading">Loading data...</div>
++    </div>
++  </div>
++
++  <script src="https://cdn.jsdelivr.net/npm/@apollo/client@4/bundles/apollo-client.cjs.min.js"></script>
++  <script src="https://cdn.jsdelivr.net/npm/graphql@16/graphql.min.js"></script>
++  <script>
++    (function() {
++      const { ApolloClient, InMemoryCache, gql } = window['@apollo/client'];
++
++      const client = new ApolloClient({
++        uri: 'https://api.example.com/graphql',
++        cache: new InMemoryCache()
++      });
++
++      const GET_PUBLIC_DATA_QUERY = gql`
++        query GetPublicData {
++          posts {
++            id
++            title
++          }
++        }
++      `;
++
++      const contentEl = document.getElementById('content');
++
++      function renderLoading() {
++        contentEl.innerHTML = '<div class="loading">Loading data...</div>';
++      }
++
++      function renderError(message) {
++        contentEl.innerHTML = `
++          <div class="error">
++            <div class="error-title">Error Loading Data</div>
++            <div>${escapeHtml(message)}</div>
++          </div>
++        `;
++      }
++
++      function renderPosts(posts) {
++        if (!posts || posts.length === 0) {
++          contentEl.innerHTML = '<div class="empty-state">No posts available.</div>';
++          return;
++        }
++
++        const listItems = posts.map(function(post) {
++          return `<li><span class="post-id">#${escapeHtml(String(post.id))}</span><span class="post-title">${escapeHtml(post.title)}</span></li>`;
++        }).join('');
++
++        contentEl.innerHTML = `<ul class="posts-list">${listItems}</ul>`;
++      }
++
++      function escapeHtml(text) {
++        const div = document.createElement('div');
++        div.textContent = text;
++        return div.innerHTML;
++      }
++
++      renderLoading();
++
++      client.query({ query: GET_PUBLIC_DATA_QUERY })
++        .then(function(response) {
++          renderPosts(response.data.posts);
++        })
++        .catch(function(error) {
++          console.error('GraphQL Error:', error);
++          renderError(error.message || 'An unexpected error occurred');
++        });
++    })();
++  </script>
++</body>
++</html>
