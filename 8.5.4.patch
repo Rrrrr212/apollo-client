@@ -1,0 +1,53 @@
+diff --git a/src/components/UserAvatar.tsx b/src/components/UserAvatar.tsx
+index xxxxxxx..yyyyyyy 100644
+--- a/src/components/UserAvatar.tsx
++++ b/src/components/UserAvatar.tsx
+@@ -1,XX +1,XX @@
+-import React, { useState, useEffect } from 'react';
++import React from 'react';
++import { useQuery } from '@apollo/client';
++import { GET_CURRENT_USER_QUERY } from '../graphql/queries/user';
+
+ interface User {
+   id: string;
+   username: string;
+   avatarUrl: string;
+ }
+
+ export function UserAvatar() {
+-  const [user, setUser] = useState<User | null>(null);
+-  const [loading, setLoading] = useState(true);
+-  const [error, setError] = useState<string | null>(null);
+-
+-  useEffect(() => {
+-    fetch('/api/user/current')
+-      .then(res => res.json())
+-      .then(data => {
+-        setUser(data);
+-        setLoading(false);
+-      })
+-      .catch(err => {
+-        setError(err.message);
+-        setLoading(false);
+-      });
+-  }, []);
++  const { data, loading, error } = useQuery<{ currentUser: User }>(GET_CURRENT_USER_QUERY);
+
+   if (loading) return <div>Loading...</div>;
+   if (error) return <div>Error: {error.message}</div>;
+-  if (!user) return null;
++  if (!data?.currentUser) return null;
++
++  const { username, avatarUrl } = data.currentUser;
+
+-  return (
+-    <div className="user-avatar">
+-      <img src={user.avatarUrl} alt={user.username} />
+-      <span>{user.username}</span>
++  return (
++    <div className="user-avatar">
++      <img src={avatarUrl} alt={username} />
++      <span>{username}</span>
+     </div>
+   );
+ }
