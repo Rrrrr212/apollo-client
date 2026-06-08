@@ -1,0 +1,132 @@
+diff --git a/src/apollo/client.ts b/src/apollo/client.ts
+new file mode 100644
+index 000000000..bf41be9ea
+--- /dev/null
++++ b/src/apollo/client.ts
+@@ -0,0 +1,8 @@
++import { ApolloClient, InMemoryCache, HttpLink } from '@apollo/client';
++
++export const client = new ApolloClient({
++  link: new HttpLink({
++    uri: 'https://api.example.com/graphql',
++  }),
++  cache: new InMemoryCache(),
++});
+diff --git a/src/components/ProductList.tsx b/src/components/ProductList.tsx
+new file mode 100644
+index 000000000..57d81a9c8
+--- /dev/null
++++ b/src/components/ProductList.tsx
+@@ -0,0 +1,94 @@
++import React from 'react';
++import { useQuery } from '@apollo/client';
++import { GET_PRODUCTS_QUERY } from '../graphql/queries/products';
++
++// 定义商品数据接口
++interface Product {
++  id: string;
++  name: string;
++  price: number;
++  description: string;
++}
++
++interface ProductsData {
++  products: Product[];
++}
++
++export const ProductList: React.FC = () => {
++  // 使用 Apollo Client 的 useQuery 替代 useEffect + fetch，并自动处理本地 loading 和 error 状态
++  const { loading, error, data } = useQuery<ProductsData>(GET_PRODUCTS_QUERY);
++
++  // 加载骨架屏
++  if (loading) {
++    return (
++      <div style={styles.grid}>
++        {[1, 2, 3, 4, 5, 6].map((i) => (
++          <div key={i} style={styles.card}>
++            <div style={{ ...styles.skeleton, height: '20px', width: '60%', marginBottom: '10px' }} />
++            <div style={{ ...styles.skeleton, height: '16px', width: '40%', marginBottom: '10px' }} />
++            <div style={{ ...styles.skeleton, height: '14px', width: '100%' }} />
++          </div>
++        ))}
++      </div>
++    );
++  }
++
++  // 错误提示
++  if (error) {
++    return (
++      <div style={styles.errorContainer}>
++        <h3>加载商品失败</h3>
++        <p>{error.message}</p>
++      </div>
++    );
++  }
++
++  // 网格布局展示商品列表
++  return (
++    <div style={styles.grid}>
++      {data?.products.map((product) => (
++        <div key={product.id} style={styles.card}>
++          <h3 style={{ margin: '0 0 10px 0' }}>{product.name}</h3>
++          <p style={{ fontWeight: 'bold', color: '#2c5282', margin: '0 0 10px 0' }}>
++            ¥{product.price.toFixed(2)}
++          </p>
++          <p style={{ color: '#4a5568', fontSize: '14px', margin: 0 }}>
++            {product.description}
++          </p>
++        </div>
++      ))}
++    </div>
++  );
++};
++
++// 基础内联样式，用于保留网格布局和骨架屏等视觉效果
++const styles = {
++  grid: {
++    display: 'grid',
++    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
++    gap: '20px',
++    padding: '20px',
++  },
++  card: {
++    border: '1px solid #e2e8f0',
++    borderRadius: '8px',
++    padding: '16px',
++    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
++  },
++  skeleton: {
++    backgroundColor: '#edf2f7',
++    borderRadius: '4px',
++    animation: 'pulse 1.5s infinite ease-in-out',
++  },
++  errorContainer: {
++    padding: '20px',
++    textAlign: 'center' as const,
++    color: '#e53e3e',
++    backgroundColor: '#fff5f5',
++    border: '1px solid #fc8181',
++    borderRadius: '8px',
++    margin: '20px',
++  },
++};
++
++export default ProductList;
+diff --git a/src/graphql/queries/products.ts b/src/graphql/queries/products.ts
+new file mode 100644
+index 000000000..748cb6b2e
+--- /dev/null
++++ b/src/graphql/queries/products.ts
+@@ -0,0 +1,12 @@
++import { gql } from '@apollo/client';
++
++export const GET_PRODUCTS_QUERY = gql`
++  query GetProducts {
++    products {
++      id
++      name
++      price
++      description
++    }
++  }
++`;
