@@ -1,0 +1,62 @@
+### 1. `src/components/TodoList.tsx`
+
+```tsx
+import { useQuery } from '@apollo/client';
+import { GET_TODOS_QUERY } from '../queries/getTodos';
+
+export const TodoList = () => {
+  const { data, loading, error } = useQuery(GET_TODOS_QUERY, {
+    // 首次执行优先使用缓存，没有缓存则发起网络请求
+    fetchPolicy: 'cache-first',
+    // 之后的重新渲染将强制只从缓存获取数据，避免重复请求
+    nextFetchPolicy: 'cache-only',
+  });
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+
+  return (
+    <ul>
+      {data?.todos.map((todo: any) => (
+        <li key={todo.id}>{todo.title} - {todo.completed ? 'Done' : 'Pending'}</li>
+      ))}
+    </ul>
+  );
+};
+```
+
+### 2. `src/mutations/completeTodo.ts`
+
+```typescript
+import { gql, useMutation } from '@apollo/client';
+
+export const COMPLETE_TODO_MUTATION = gql`
+  mutation CompleteTodo($id: ID!) {
+    completeTodo(id: $id) {
+      id
+      completed
+    }
+  }
+`;
+
+export const useCompleteTodo = () => {
+  return useMutation(COMPLETE_TODO_MUTATION, {
+    // mutation 完成后执行更新缓存逻辑
+    update(cache, { data }) {
+      if (!data?.completeTodo) return;
+
+      // 使用 cache.modify 局部更新该 Todo 实例的状态
+      cache.modify({
+        // 通过 cache.identify 生成该实体的唯一缓存 ID
+        id: cache.identify(data.completeTodo),
+        fields: {
+          completed(existingCompletedStatus) {
+            // 返回服务器端返回的最新完成状态
+            return data.completeTodo.completed;
+          }
+        }
+      });
+    }
+  });
+};
+```
