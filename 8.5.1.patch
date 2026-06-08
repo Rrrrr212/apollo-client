@@ -1,0 +1,154 @@
+diff --git a/example/README.md b/example/README.md
+new file mode 100644
+index 000000000..3555768ef
+--- /dev/null
++++ b/example/README.md
+@@ -0,0 +1,33 @@
++# UserAvatar 组件迁移示例
++
++本示例展示如何将使用 REST API `fetch` 的组件迁移到使用 Apollo Client 的 `useQuery` 钩子。
++
++## 文件结构
++
++- `src/graphql/queries/user.ts` - 定义 GraphQL 查询
++- `src/apollo/client.ts` - Apollo Client 配置
++- `src/components/UserAvatar.original.tsx` - 原始使用 fetch 的组件
++- `src/components/UserAvatar.tsx` - 修改后使用 useQuery 的组件
++
++## 主要变更
++
++### 1. 导入变更
++
++**原始代码：**
++```tsx
++import { useState, useEffect } from "react";
++```
++
++**修改后：**
++```tsx
++import { useQuery } from "@apollo/client/react";
++import { GET_CURRENT_USER_QUERY } from "../graphql/queries/user";
++```
++
++### 2. 状态管理移除
++
++移除了手动的 `useState` 和 `useEffect`，改为使用 `useQuery` 自动管理加载、错误和数据状态。
++
++### 3. 缓存自动处理
++
++Apollo Client 的零配置缓存会自动缓存查询结果，避免重复请求。
+diff --git a/example/src/apollo/client.ts b/example/src/apollo/client.ts
+new file mode 100644
+index 000000000..6cb5ea3db
+--- /dev/null
++++ b/example/src/apollo/client.ts
+@@ -0,0 +1,21 @@
++import { ApolloClient, InMemoryCache, createHttpLink } from "@apollo/client";
++import { setContext } from "@apollo/client/link/context";
++
++const httpLink = createHttpLink({
++  uri: "/graphql",
++});
++
++const authLink = setContext((_, { headers }) => {
++  const token = localStorage.getItem("token");
++  return {
++    headers: {
++      ...headers,
++      authorization: token ? `Bearer ${token}` : "",
++    },
++  };
++});
++
++export const client = new ApolloClient({
++  link: authLink.concat(httpLink),
++  cache: new InMemoryCache(),
++});
+diff --git a/example/src/components/UserAvatar.original.tsx b/example/src/components/UserAvatar.original.tsx
+new file mode 100644
+index 000000000..43507d038
+--- /dev/null
++++ b/example/src/components/UserAvatar.original.tsx
+@@ -0,0 +1,40 @@
++import { useState, useEffect } from "react";
++
++export function UserAvatar() {
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState<Error | null>(null);
++  const [user, setUser] = useState<{ id: string; name: string; avatarUrl: string } | null>(null);
++
++  useEffect(() => {
++    async function fetchUser() {
++      try {
++        setLoading(true);
++        const response = await fetch("/api/current-user", {
++          headers: {
++            Authorization: `Bearer ${localStorage.getItem("token")}`,
++          },
++        });
++        if (!response.ok) throw new Error("Failed to fetch user");
++        const data = await response.json();
++        setUser(data.currentUser);
++      } catch (err) {
++        setError(err instanceof Error ? err : new Error("Unknown error"));
++      } finally {
++        setLoading(false);
++      }
++    }
++
++    fetchUser();
++  }, []);
++
++  if (loading) return <div>Loading...</div>;
++  if (error) return <div>Error: {error.message}</div>;
++  if (!user) return <div>No user found</div>;
++
++  return (
++    <div className="user-avatar">
++      <img src={user.avatarUrl} alt={user.name} className="avatar" />
++      <span className="username">{user.name}</span>
++    </div>
++  );
++}
+diff --git a/example/src/components/UserAvatar.tsx b/example/src/components/UserAvatar.tsx
+new file mode 100644
+index 000000000..3d47695d2
+--- /dev/null
++++ b/example/src/components/UserAvatar.tsx
+@@ -0,0 +1,19 @@
++import { useQuery } from "@apollo/client/react";
++import { GET_CURRENT_USER_QUERY } from "../graphql/queries/user";
++
++export function UserAvatar() {
++  const { loading, error, data } = useQuery(GET_CURRENT_USER_QUERY);
++
++  if (loading) return <div>Loading...</div>;
++  if (error) return <div>Error: {error.message}</div>;
++  if (!data?.currentUser) return <div>No user found</div>;
++
++  const { currentUser } = data;
++
++  return (
++    <div className="user-avatar">
++      <img src={currentUser.avatarUrl} alt={currentUser.name} className="avatar" />
++      <span className="username">{currentUser.name}</span>
++    </div>
++  );
++}
+diff --git a/example/src/graphql/queries/user.ts b/example/src/graphql/queries/user.ts
+new file mode 100644
+index 000000000..712e4cadb
+--- /dev/null
++++ b/example/src/graphql/queries/user.ts
+@@ -0,0 +1,11 @@
++import { gql } from "@apollo/client";
++
++export const GET_CURRENT_USER_QUERY = gql`
++  query GetCurrentUser {
++    currentUser {
++      id
++      name
++      avatarUrl
++    }
++  }
++`;
