@@ -1,0 +1,122 @@
+diff --git a/src/pages/PublicDashboard/dashboard.html b/src/pages/PublicDashboard/dashboard.html
+new file mode 100644
+index 000000000..2ed050fd5
+--- /dev/null
++++ b/src/pages/PublicDashboard/dashboard.html
+@@ -0,0 +1,116 @@
++<!DOCTYPE html>
++<html lang="en">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Public GraphQL Dashboard</title>
++    <style>
++        body {
++            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
++            max-width: 800px;
++            margin: 0 auto;
++            padding: 2rem;
++        }
++        .loading {
++            color: #666;
++            font-style: italic;
++        }
++        .error {
++            color: #dc2626;
++            background: #fee2e2;
++            padding: 1rem;
++            border-radius: 0.5rem;
++            margin: 1rem 0;
++        }
++        ul {
++            list-style: none;
++            padding: 0;
++        }
++        li {
++            padding: 1rem;
++            border-bottom: 1px solid #e5e7eb;
++        }
++        li:last-child {
++            border-bottom: none;
++        }
++        .post-id {
++            font-size: 0.875rem;
++            color: #6b7280;
++            margin-right: 0.5rem;
++        }
++        .post-title {
++            font-weight: 500;
++        }
++    </style>
++</head>
++<body>
++    <h1>Public GraphQL Dashboard</h1>
++    <div id="content"></div>
++
++    <script src="https://cdn.jsdelivr.net/npm/@apollo/client@3.8.8/dist/bundles/core.umd.js"></script>
++    <script src="https://cdn.jsdelivr.net/npm/graphql@16.8.1/graphql.min.js"></script>
++    <script>
++        const { ApolloClient, InMemoryCache, createHttpLink, gql } = Apollo;
++
++        const client = new ApolloClient({
++            link: createHttpLink({
++                uri: 'https://api.example.com/graphql',
++            }),
++            cache: new InMemoryCache(),
++        });
++
++        const GET_PUBLIC_DATA_QUERY = gql`
++            query GetPublicData {
++                posts {
++                    id
++                    title
++                }
++            }
++        `;
++
++        const contentDiv = document.getElementById('content');
++
++        function renderLoading() {
++            contentDiv.innerHTML = '<p class="loading">Loading posts...</p>';
++        }
++
++        function renderError(error) {
++            contentDiv.innerHTML = `<div class="error"><strong>Error:</strong> ${error.message}</div>`;
++        }
++
++        function renderPosts(posts) {
++            if (!posts || posts.length === 0) {
++                contentDiv.innerHTML = '<p>No posts found.</p>';
++                return;
++            }
++
++            const ul = document.createElement('ul');
++            posts.forEach(post => {
++                const li = document.createElement('li');
++                li.innerHTML = `
++                    <span class="post-id">#${post.id}</span>
++                    <span class="post-title">${post.title}</span>
++                `;
++                ul.appendChild(li);
++            });
++            contentDiv.innerHTML = '';
++            contentDiv.appendChild(ul);
++        }
++
++        async function fetchData() {
++            renderLoading();
++            try {
++                const result = await client.query({
++                    query: GET_PUBLIC_DATA_QUERY,
++                });
++                renderPosts(result.data.posts);
++            } catch (error) {
++                console.error('Error fetching data:', error);
++                renderError(error);
++            }
++        }
++
++        fetchData();
++    </script>
++</body>
++</html>
