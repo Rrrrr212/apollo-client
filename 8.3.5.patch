@@ -1,0 +1,97 @@
+diff --git a/src/components/TodoList.tsx b/src/components/TodoList.tsx
+new file mode 100644
+index 000000000..0c7c9d103
+--- /dev/null
++++ b/src/components/TodoList.tsx
+@@ -0,0 +1,45 @@
++import React from "react";
++import { gql } from "@apollo/client";
++import { useQuery } from "@apollo/client/react";
++
++const GET_TODOS_QUERY = gql`
++  query GetTodos {
++    todos {
++      id
++      text
++      completed
++    }
++  }
++`;
++
++interface Todo {
++  id: string;
++  text: string;
++  completed: boolean;
++}
++
++interface GetTodosData {
++  todos: Todo[];
++}
++
++function TodoList() {
++  const { loading, error, data } = useQuery<GetTodosData>(GET_TODOS_QUERY, {
++    fetchPolicy: "cache-first",
++    nextFetchPolicy: "cache-only",
++  });
++
++  if (loading) return <p>Loading...</p>;
++  if (error) return <p>Error: {error.message}</p>;
++
++  return (
++    <ul>
++      {data?.todos.map((todo) => (
++        <li key={todo.id} style={{ textDecoration: todo.completed ? "line-through" : "none" }}>
++          {todo.text}
++        </li>
++      ))}
++    </ul>
++  );
++}
++
++export default TodoList;
+diff --git a/src/mutations/completeTodo.ts b/src/mutations/completeTodo.ts
+new file mode 100644
+index 000000000..e9a753667
+--- /dev/null
++++ b/src/mutations/completeTodo.ts
+@@ -0,0 +1,40 @@
++import { gql, type ApolloCache } from "@apollo/client";
++
++const COMPLETE_TODO_MUTATION = gql`
++  mutation CompleteTodo($id: ID!) {
++    completeTodo(id: $id) {
++      id
++      completed
++    }
++  }
++`;
++
++interface CompleteTodoData {
++  completeTodo: {
++    id: string;
++    completed: boolean;
++  };
++}
++
++interface CompleteTodoVariables {
++  id: string;
++}
++
++function completeTodoUpdate(
++  cache: ApolloCache,
++  { data }: { data?: CompleteTodoData | null }
++) {
++  if (!data?.completeTodo) return;
++
++  const { id, completed } = data.completeTodo;
++
++  cache.modify({
++    id: cache.identify({ __typename: "Todo", id }),
++    fields: {
++      completed: () => completed,
++    },
++  });
++}
++
++export { COMPLETE_TODO_MUTATION, completeTodoUpdate };
++export type { CompleteTodoData, CompleteTodoVariables };
