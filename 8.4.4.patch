@@ -1,0 +1,108 @@
+diff --git a/src/apollo/client.ts b/src/apollo/client.ts
+new file mode 100644
+index 000000000..5cd784d30
+--- /dev/null
++++ b/src/apollo/client.ts
+@@ -0,0 +1,8 @@
++import { ApolloClient, InMemoryCache, HttpLink } from "@apollo/client";
++
++export const client = new ApolloClient({
++  link: new HttpLink({
++    uri: "https://api.example.com/graphql",
++  }),
++  cache: new InMemoryCache(),
++});
+diff --git a/src/components/ProductList.tsx b/src/components/ProductList.tsx
+new file mode 100644
+index 000000000..606836d99
+--- /dev/null
++++ b/src/components/ProductList.tsx
+@@ -0,0 +1,59 @@
++import * as React from "react";
++import { useQuery } from "@apollo/client/react";
++import { GET_PRODUCTS_QUERY } from "../graphql/queries/products.js";
++import type { GetProductsQueryResult } from "../graphql/queries/products.js";
++
++function ProductSkeleton() {
++  return (
++    <div className="product-grid">
++      {Array.from({ length: 6 }).map((_, index) => (
++        <div key={index} className="product-card skeleton">
++          <div className="skeleton-line skeleton-name" />
++          <div className="skeleton-line skeleton-price" />
++          <div className="skeleton-line skeleton-description" />
++        </div>
++      ))}
++    </div>
++  );
++}
++
++function ErrorDisplay({ message }: { message: string }) {
++  return (
++    <div className="error-container" role="alert">
++      <p className="error-icon">⚠</p>
++      <p className="error-message">请求失败：{message}</p>
++      <button
++        className="error-retry-btn"
++        onClick={() => window.location.reload()}
++      >
++        重试
++      </button>
++    </div>
++  );
++}
++
++export function ProductList() {
++  const { data, loading, error } = useQuery<GetProductsQueryResult>(
++    GET_PRODUCTS_QUERY
++  );
++
++  if (loading) {
++    return <ProductSkeleton />;
++  }
++
++  if (error) {
++    return <ErrorDisplay message={error.message} />;
++  }
++
++  return (
++    <div className="product-grid">
++      {data?.products.map((product) => (
++        <div key={product.id} className="product-card">
++          <h3 className="product-name">{product.name}</h3>
++          <p className="product-price">&yen;{product.price}</p>
++          <p className="product-description">{product.description}</p>
++        </div>
++      ))}
++    </div>
++  );
++}
+diff --git a/src/graphql/queries/products.ts b/src/graphql/queries/products.ts
+new file mode 100644
+index 000000000..207efc227
+--- /dev/null
++++ b/src/graphql/queries/products.ts
+@@ -0,0 +1,23 @@
++import { gql } from "@apollo/client";
++
++export interface Product {
++  id: string;
++  name: string;
++  price: number;
++  description: string;
++}
++
++export interface GetProductsQueryResult {
++  products: Product[];
++}
++
++export const GET_PRODUCTS_QUERY = gql`
++  query GetProducts {
++    products {
++      id
++      name
++      price
++      description
++    }
++  }
++`;
