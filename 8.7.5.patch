@@ -1,0 +1,225 @@
+diff --git a/.github/workflows/types-check.yml b/.github/workflows/types-check.yml
+new file mode 100644
+index 000000000..7e2e48780
+--- /dev/null
++++ b/.github/workflows/types-check.yml
+@@ -0,0 +1,36 @@
++name: Types Check
++
++on: pull_request
++
++permissions:
++  contents: read
++
++concurrency: ${{ github.workflow }}-${{ github.ref }}
++
++jobs:
++  types-check:
++    name: GraphQL Types Check
++    runs-on: ubuntu-latest
++    steps:
++      - name: Checkout repo
++        uses: actions/checkout@de0fac2e4500dabe0009c67214ff5f5447ce83dd # v6
++        with:
++          persist-credentials: false
++
++      - name: Setup Node.js
++        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
++        with:
++          node-version: ">=23.6.0"
++
++      - run: npm ci
++
++      - name: Generate GraphQL types
++        run: npm run gen:types
++
++      - name: Check for uncommitted changes
++        run: |
++          if [ -n "$(git diff --name-only src/graphql/generated.ts)" ]; then
++            echo "::error::GraphQL generated types are out of date. Run 'npm run gen:types' and commit the changes."
++            git diff src/graphql/generated.ts
++            exit 1
++          fi
+diff --git a/codegen.ts b/codegen.ts
+new file mode 100644
+index 000000000..8d836191c
+--- /dev/null
++++ b/codegen.ts
+@@ -0,0 +1,36 @@
++import type { CodegenConfig } from "@graphql-codegen/cli";
++
++const config: CodegenConfig = {
++  overwrite: true,
++  schema: "./src/graphql/schema.graphql",
++  documents: ["./src/graphql/queries/**/*.ts"],
++  ignoreNoDocuments: true,
++  hooks: {
++    afterAllFileWrite: ["prettier --write"],
++  },
++  generates: {
++    "./src/graphql/generated.ts": {
++      plugins: [
++        "typescript",
++        "typescript-operations",
++        "typescript-react-apollo",
++      ],
++      config: {
++        avoidOptionals: {
++          field: true,
++          inputValue: false,
++        },
++        defaultScalarType: "unknown",
++        nonOptionalTypename: true,
++        skipTypeNameForRoot: true,
++        withHooks: true,
++        withHOC: false,
++        withComponent: false,
++        reactApolloVersion: 3,
++        apolloClientInstanceImport: "@apollo/client",
++      },
++    },
++  },
++};
++
++export default config;
+diff --git a/package.json b/package.json
+index fc28a6a74..84ea2f29e 100644
+--- a/package.json
++++ b/package.json
+@@ -101,6 +101,7 @@
+     "test:debug": "node --inspect-brk node_modules/.bin/jest --config ./config/jest.config.ts --runInBand --testTimeout 99999 --logHeapUsage",
+     "test:ci": "TEST_ENV=ci npm run test:coverage -- --logHeapUsage",
+     "test:codegen": "npm run build -w codegen && graphql-codegen --config ./tests.codegen.ts",
++    "gen:types": "graphql-codegen --config ./codegen.ts",
+     "test:watch": "jest --config ./config/jest.config.ts --watch",
+     "test:memory": "npm i && npm run build && cd scripts/memory && npm i && npm test",
+     "test:coverage": "npm run coverage -- --ci --runInBand --reporters=default --reporters=jest-junit",
+@@ -170,6 +171,9 @@
+     "@changesets/changelog-github": "0.5.0",
+     "@changesets/cli": "2.27.7",
+     "@graphql-codegen/cli": "^5.0.6",
++    "@graphql-codegen/typescript": "^5.0.4",
++    "@graphql-codegen/typescript-operations": "^4.6.0",
++    "@graphql-codegen/typescript-react-apollo": "^4.3.2",
+     "@graphql-tools/schema": "10.0.33",
+     "@jest/expect-utils": "30.2.0",
+     "@jest/globals": "30.2.0",
+diff --git a/src/graphql/queries/getUser.ts b/src/graphql/queries/getUser.ts
+new file mode 100644
+index 000000000..b66a97846
+--- /dev/null
++++ b/src/graphql/queries/getUser.ts
+@@ -0,0 +1,17 @@
++import { gql } from "@apollo/client";
++
++export const GET_USER = gql`
++  query GetUser($id: ID!) {
++    user(id: $id) {
++      id
++      name
++      email
++      role
++      posts {
++        id
++        title
++        createdAt
++      }
++    }
++  }
++`;
+diff --git a/src/graphql/queries/getUsers.ts b/src/graphql/queries/getUsers.ts
+new file mode 100644
+index 000000000..282474f49
+--- /dev/null
++++ b/src/graphql/queries/getUsers.ts
+@@ -0,0 +1,12 @@
++import { gql } from "@apollo/client";
++
++export const GET_USERS = gql`
++  query GetUsers {
++    users {
++      id
++      name
++      email
++      role
++    }
++  }
++`;
+diff --git a/src/graphql/queries/mutations.ts b/src/graphql/queries/mutations.ts
+new file mode 100644
+index 000000000..478072f1d
+--- /dev/null
++++ b/src/graphql/queries/mutations.ts
+@@ -0,0 +1,23 @@
++import { gql } from "@apollo/client";
++
++export const CREATE_USER = gql`
++  mutation CreateUser($input: CreateUserInput!) {
++    createUser(input: $input) {
++      id
++      name
++      email
++      role
++    }
++  }
++`;
++
++export const UPDATE_USER = gql`
++  mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
++    updateUser(id: $id, input: $input) {
++      id
++      name
++      email
++      role
++    }
++  }
++`;
+diff --git a/src/graphql/schema.graphql b/src/graphql/schema.graphql
+new file mode 100644
+index 000000000..f9d23864f
+--- /dev/null
++++ b/src/graphql/schema.graphql
+@@ -0,0 +1,43 @@
++type Query {
++  user(id: ID!): User
++  users: [User!]!
++}
++
++type Mutation {
++  createUser(input: CreateUserInput!): User!
++  updateUser(id: ID!, input: UpdateUserInput!): User!
++}
++
++type User {
++  id: ID!
++  name: String!
++  email: String!
++  role: Role!
++  posts: [Post!]!
++}
++
++type Post {
++  id: ID!
++  title: String!
++  content: String!
++  author: User!
++  createdAt: String!
++}
++
++enum Role {
++  ADMIN
++  USER
++  GUEST
++}
++
++input CreateUserInput {
++  name: String!
++  email: String!
++  role: Role = USER
++}
++
++input UpdateUserInput {
++  name: String
++  email: String
++  role: Role
++}
