@@ -1,0 +1,92 @@
+diff --git a/.github/workflows/types-check.yml b/.github/workflows/types-check.yml
+new file mode 100644
+index 000000000..c90d85eb4
+--- /dev/null
++++ b/.github/workflows/types-check.yml
+@@ -0,0 +1,41 @@
++name: GraphQL Types Check
++
++on:
++  pull_request:
++    branches:
++      - main
++      - release-*
++
++concurrency: ${{ github.workflow }}-${{ github.ref }}
++
++permissions:
++  contents: read
++
++jobs:
++  types-check:
++    name: Check GraphQL type generation
++    runs-on: ubuntu-latest
++    steps:
++      - name: Checkout repo
++        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
++        with:
++          persist-credentials: false
++
++      - name: Setup Node.js
++        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
++        with:
++          node-version: ">=23.6.0"
++
++      - run: npm ci
++
++      - name: Generate GraphQL types
++        run: npm run gen:types
++
++      - name: Check for uncommitted changes
++        run: |
++          if [ -n "$(git diff --exit-code -- src/graphql/generated.ts)" ]; then
++            echo "❌ Generated types are out of date. Please run 'npm run gen:types' and commit the result."
++            git diff -- src/graphql/generated.ts
++            exit 1
++          fi
++          echo "✅ Generated types are up to date."
+\ No newline at end of file
+diff --git a/codegen.ts b/codegen.ts
+new file mode 100644
+index 000000000..06a01a9d0
+--- /dev/null
++++ b/codegen.ts
+@@ -0,0 +1,26 @@
++import type { CodegenConfig } from "@graphql-codegen/cli";
++
++const config: CodegenConfig = {
++  schema: "src/graphql/schema.graphql",
++  documents: "src/graphql/queries/*.ts",
++  hooks: {
++    afterAllFileWrite: ["prettier --write"],
++  },
++  generates: {
++    "src/graphql/generated.ts": {
++      plugins: [
++        "typescript",
++        "typescript-operations",
++        "typescript-react-apollo",
++      ],
++      config: {
++        withHooks: true,
++        withHOC: false,
++        withComponent: false,
++        nonOptionalTypename: true,
++      },
++    },
++  },
++};
++
++export default config;
+diff --git a/package.json b/package.json
+index fc28a6a74..9a00a2e67 100644
+--- a/package.json
++++ b/package.json
+@@ -95,6 +95,7 @@
+     "check:format": "prettier --check .",
+     "ci:precheck": "node config/precheck.ts",
+     "format": "prettier --write .",
++    "gen:types": "graphql-codegen --config codegen.ts",
+     "lint": "EXTENDED_RULES=1 eslint --max-warnings 0 src docs",
+     "test": "node --expose-gc --experimental-import-meta-resolve --disable-warning=ExperimentalWarning ./node_modules/jest/bin/jest.js --config ./config/jest.config.ts",
+     "test:type-benches": "find src -name '*.bench.ts' | xargs -n1 tsx",

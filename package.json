@@ -95,7 +95,6 @@
     "check:format": "prettier --check .",
     "ci:precheck": "node config/precheck.ts",
     "format": "prettier --write .",
-    "gen:types": "graphql-codegen --config codegen.ts",
     "lint": "EXTENDED_RULES=1 eslint --max-warnings 0 src docs",
     "test": "node --expose-gc --experimental-import-meta-resolve --disable-warning=ExperimentalWarning ./node_modules/jest/bin/jest.js --config ./config/jest.config.ts",
     "test:type-benches": "find src -name '*.bench.ts' | xargs -n1 tsx",
