@@ -1,0 +1,100 @@
+diff --git a/.github/workflows/types-check.yml b/.github/workflows/types-check.yml
+new file mode 100644
+index 000000000..35aea064b
+--- /dev/null
++++ b/.github/workflows/types-check.yml
+@@ -0,0 +1,37 @@
++name: GraphQL Types Check
++on:
++  pull_request:
++
++concurrency: ${{ github.workflow }}-${{ github.ref }}
++
++permissions:
++  contents: read
++
++jobs:
++  graphql-types:
++    name: GraphQL types are up to date
++    runs-on: ubuntu-latest
++    steps:
++      - name: Checkout repo
++        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
++        with:
++          persist-credentials: false
++      - name: Setup Node.js
++        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
++        with:
++          node-version: ">=23.6.0"
++          cache: npm
++
++      - run: npm ci
++
++      - name: Regenerate GraphQL types
++        run: npm run gen:types
++
++      - name: Ensure generated types are committed
++        run: |
++          if [ -n "$(git status --porcelain -- src/graphql/generated.ts)" ]; then
++            echo "Generated GraphQL types are out of date. Run npm run gen:types and commit src/graphql/generated.ts."
++            git status --short -- src/graphql/generated.ts
++            git diff -- src/graphql/generated.ts
++            exit 1
++          fi
+diff --git a/codegen.ts b/codegen.ts
+new file mode 100644
+index 000000000..ac502260b
+--- /dev/null
++++ b/codegen.ts
+@@ -0,0 +1,29 @@
++import type { CodegenConfig } from "@graphql-codegen/cli";
++
++const config: CodegenConfig = {
++  overwrite: true,
++  schema: "./src/graphql/schema.graphql",
++  documents: ["./src/graphql/queries/*.ts"],
++  hooks: {
++    afterAllFileWrite: ["prettier --write"],
++  },
++  generates: {
++    "./src/graphql/generated.ts": {
++      plugins: [
++        "typescript",
++        "typescript-operations",
++        "typescript-react-apollo",
++      ],
++      config: {
++        withHooks: true,
++        withComponent: false,
++        withHOC: false,
++        reactApolloVersion: 3,
++        nonOptionalTypename: true,
++        skipTypeNameForRoot: true,
++      },
++    },
++  },
++};
++
++export default config;
+diff --git a/package.json b/package.json
+index fc28a6a74..1dfc4838c 100644
+--- a/package.json
++++ b/package.json
+@@ -87,6 +87,7 @@
+   "scripts": {
+     "prebuild": "npm run clean",
+     "build": "node config/build.ts",
++    "gen:types": "graphql-codegen --config codegen.ts",
+     "typecheck": "tsc --project config/tsconfig.json && tsc --noEmit --project tsconfig.json && cd integration-tests/type-tests && npm run test",
+     "postinstall": "patch-package",
+     "extract-api": "npm run clean && node config/build.ts --step=prepareDist --step=addExports --step=typescript --step=inlineInheritDoc --step=deprecateInternals && npm run extract-api:only",
+@@ -170,6 +171,9 @@
+     "@changesets/changelog-github": "0.5.0",
+     "@changesets/cli": "2.27.7",
+     "@graphql-codegen/cli": "^5.0.6",
++    "@graphql-codegen/typescript": "^6.0.1",
++    "@graphql-codegen/typescript-operations": "^6.0.2",
++    "@graphql-codegen/typescript-react-apollo": "^4.4.2",
+     "@graphql-tools/schema": "10.0.33",
+     "@jest/expect-utils": "30.2.0",
+     "@jest/globals": "30.2.0",
