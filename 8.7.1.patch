@@ -1,0 +1,72 @@
+diff --git a/.github/workflows/types-check.yml b/.github/workflows/types-check.yml
+new file mode 100644
+index 000000000..c2b906ac8
+--- /dev/null
++++ b/.github/workflows/types-check.yml
+@@ -0,0 +1,30 @@
++name: Types Check
++on: pull_request
++
++permissions:
++  contents: read
++
++concurrency: ${{ github.workflow }}-${{ github.ref }}
++
++jobs:
++  types-check:
++    name: GraphQL Types Check
++    runs-on: ubuntu-latest
++    steps:
++      - name: Checkout repo
++        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
++        with:
++          persist-credentials: false
++
++      - name: Setup Node.js
++        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
++        with:
++          node-version: ">=23.6.0"
++
++      - run: npm ci
++
++      - name: Generate GraphQL types
++        run: npm run gen:types
++
++      - name: Verify generated types are up-to-date with schema
++        run: git diff --exit-code src/graphql/generated.ts
+diff --git a/codegen.ts b/codegen.ts
+new file mode 100644
+index 000000000..b847ca603
+--- /dev/null
++++ b/codegen.ts
+@@ -0,0 +1,17 @@
++import type { CodegenConfig } from "@graphql-codegen/cli";
++
++const config: CodegenConfig = {
++  schema: "src/graphql/schema.graphql",
++  documents: ["src/graphql/queries/*.ts"],
++  generates: {
++    "src/graphql/generated.ts": {
++      plugins: [
++        "typescript",
++        "typescript-operations",
++        "typescript-react-apollo",
++      ],
++    },
++  },
++};
++
++export default config;
+diff --git a/package.json b/package.json
+index fc28a6a74..be3af8ebc 100644
+--- a/package.json
++++ b/package.json
+@@ -95,6 +95,8 @@
+     "check:format": "prettier --check .",
+     "ci:precheck": "node config/precheck.ts",
+     "format": "prettier --write .",
++    "gen:types": "graphql-codegen --config codegen.ts",
++    "gen:types:check": "graphql-codegen --config codegen.ts && git diff --exit-code src/graphql/generated.ts",
+     "lint": "EXTENDED_RULES=1 eslint --max-warnings 0 src docs",
+     "test": "node --expose-gc --experimental-import-meta-resolve --disable-warning=ExperimentalWarning ./node_modules/jest/bin/jest.js --config ./config/jest.config.ts",
+     "test:type-benches": "find src -name '*.bench.ts' | xargs -n1 tsx",
