@@ -1,0 +1,15 @@
+diff --git a/src/components/__tests__/LoginForm.test.tsx b/src/components/__tests__/LoginForm.test.tsx
+index 9c7767d6b..0c83e8aed 100644
+--- a/src/components/__tests__/LoginForm.test.tsx
++++ b/src/components/__tests__/LoginForm.test.tsx
+@@ -118,7 +118,9 @@ describe("LoginForm", () => {
+     mockLogin.mockResolvedValue({ data: successData });
+     mockUseMutation
+       .mockReturnValueOnce(buildMutationState())
+-      .mockReturnValueOnce(buildMutationState({ called: true, data: successData }));
++      .mockReturnValueOnce(
++        buildMutationState({ called: true, data: successData })
++      );
+ 
+     const { rerender } = render(<LoginForm />);
+ 

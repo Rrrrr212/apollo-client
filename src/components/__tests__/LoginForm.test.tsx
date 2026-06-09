@@ -118,9 +118,7 @@ describe("LoginForm", () => {
     mockLogin.mockResolvedValue({ data: successData });
     mockUseMutation
       .mockReturnValueOnce(buildMutationState())
-      .mockReturnValueOnce(
-        buildMutationState({ called: true, data: successData })
-      );
+      .mockReturnValueOnce(buildMutationState({ called: true, data: successData }));
 
     const { rerender } = render(<LoginForm />);
 
