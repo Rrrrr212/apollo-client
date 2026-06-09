@@ -1,0 +1,188 @@
+diff --git a/src/components/LoginForm.tsx b/src/components/LoginForm.tsx
+new file mode 100644
+index 000000000..fe79f5eff
+--- /dev/null
++++ b/src/components/LoginForm.tsx
+@@ -0,0 +1,58 @@
++import React, { useState } from "react";
++import { useMutation } from "@apollo/client/react";
++import { LOGIN_MUTATION } from "../graphql/mutations/login.js";
++
++interface LoginFormProps {
++  onLoginSuccess?: (token: string) => void;
++}
++
++export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
++  const [email, setEmail] = useState("");
++  const [password, setPassword] = useState("");
++  const [errorMessage, setErrorMessage] = useState<string | null>(null);
++
++  const [login, { loading }] = useMutation(LOGIN_MUTATION, {
++    onCompleted: (data) => {
++      setErrorMessage(null);
++      onLoginSuccess?.(data.login.token);
++    },
++    onError: (error) => {
++      setErrorMessage(error.message);
++    },
++  });
++
++  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
++    e.preventDefault();
++    setErrorMessage(null);
++    await login({ variables: { email, password } });
++  };
++
++  return (
++    <form onSubmit={handleSubmit} aria-label="login-form">
++      <div>
++        <label htmlFor="email">Email</label>
++        <input
++          id="email"
++          type="email"
++          value={email}
++          onChange={(e) => setEmail(e.target.value)}
++          required
++        />
++      </div>
++      <div>
++        <label htmlFor="password">Password</label>
++        <input
++          id="password"
++          type="password"
++          value={password}
++          onChange={(e) => setPassword(e.target.value)}
++          required
++        />
++      </div>
++      {errorMessage && <div role="alert">{errorMessage}</div>}
++      <button type="submit" disabled={loading}>
++        {loading ? "Logging in..." : "Login"}
++      </button>
++    </form>
++  );
++}
+diff --git a/src/components/__tests__/LoginForm.test.tsx b/src/components/__tests__/LoginForm.test.tsx
+new file mode 100644
+index 000000000..82b04d937
+--- /dev/null
++++ b/src/components/__tests__/LoginForm.test.tsx
+@@ -0,0 +1,77 @@
++import { render, screen, waitFor } from "@testing-library/react";
++import { userEvent } from "@testing-library/user-event";
++import React from "react";
++import { useMutation } from "@apollo/client/react";
++import LoginForm from "../LoginForm.js";
++
++jest.mock("@apollo/client/react", () => {
++  const actual = jest.requireActual<
++    typeof import("@apollo/client/react")
++  >("@apollo/client/react");
++  return {
++    ...actual,
++    useMutation: jest.fn(),
++  };
++});
++
++const mockUseMutation = useMutation as jest.Mock;
++
++describe("LoginForm", () => {
++  beforeEach(() => {
++    jest.clearAllMocks();
++  });
++
++  it("should call onLoginSuccess with token on successful login", async () => {
++    const onLoginSuccess = jest.fn();
++
++    mockUseMutation.mockImplementation((_mutation: unknown, options?: any) => {
++      const loginFn = jest.fn().mockImplementation(async () => {
++        options?.onCompleted?.({ login: { token: "test-token" } });
++      });
++      return [loginFn, { loading: false }];
++    });
++
++    render(<LoginForm onLoginSuccess={onLoginSuccess} />);
++    const user = userEvent.setup();
++
++    await user.type(screen.getByLabelText("Email"), "test@example.com");
++    await user.type(screen.getByLabelText("Password"), "password123");
++    await user.click(screen.getByRole("button", { name: "Login" }));
++
++    await waitFor(() => {
++      expect(onLoginSuccess).toHaveBeenCalledWith("test-token");
++    });
++  });
++
++  it("should display error message when login fails", async () => {
++    mockUseMutation.mockImplementation((_mutation: unknown, options?: any) => {
++      const loginFn = jest.fn().mockImplementation(async () => {
++        options?.onError?.({ message: "Invalid credentials" });
++      });
++      return [loginFn, { loading: false }];
++    });
++
++    render(<LoginForm />);
++    const user = userEvent.setup();
++
++    await user.type(screen.getByLabelText("Email"), "test@example.com");
++    await user.type(screen.getByLabelText("Password"), "wrong");
++    await user.click(screen.getByRole("button", { name: "Login" }));
++
++    await waitFor(() => {
++      expect(screen.getByRole("alert")).toHaveTextContent(
++        "Invalid credentials"
++      );
++    });
++  });
++
++  it("should disable the submit button while loading", () => {
++    mockUseMutation.mockReturnValue([jest.fn(), { loading: true }]);
++
++    render(<LoginForm />);
++
++    const button = screen.getByRole("button", { name: "Logging in..." });
++
++    expect(button).toBeDisabled();
++  });
++});
+\ No newline at end of file
+diff --git a/src/graphql/mutations/login.ts b/src/graphql/mutations/login.ts
+new file mode 100644
+index 000000000..0edbacc11
+--- /dev/null
++++ b/src/graphql/mutations/login.ts
+@@ -0,0 +1,34 @@
++import type { TypedDocumentNode } from "@apollo/client";
++import { gql } from "graphql-tag";
++
++export interface LoginMutationData {
++  login: {
++    token: string;
++    user: {
++      id: string;
++      email: string;
++      name: string;
++    };
++  };
++}
++
++export interface LoginMutationVariables {
++  email: string;
++  password: string;
++}
++
++export const LOGIN_MUTATION: TypedDocumentNode<
++  LoginMutationData,
++  LoginMutationVariables
++> = gql`
++  mutation Login($email: String!, $password: String!) {
++    login(email: $email, password: $password) {
++      token
++      user {
++        id
++        email
++        name
++      }
++    }
++  }
++`;
