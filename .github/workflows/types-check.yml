@@ -1,0 +1,37 @@
+name: GraphQL Types Check
+on:
+  pull_request:
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read
+
+jobs:
+  graphql-types:
+    name: GraphQL types are up to date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: ">=23.6.0"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Regenerate GraphQL types
+        run: npm run gen:types
+
+      - name: Ensure generated types are committed
+        run: |
+          if [ -n "$(git status --porcelain -- src/graphql/generated.ts)" ]; then
+            echo "Generated GraphQL types are out of date. Run npm run gen:types and commit src/graphql/generated.ts."
+            git status --short -- src/graphql/generated.ts
+            git diff -- src/graphql/generated.ts
+            exit 1
+          fi
